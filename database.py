@@ -116,6 +116,57 @@ def count() -> int:
     return get_client().count(collection_name=COLLECTION_NAME).count
 
 
+def rename_person(old_name: str, new_name: str) -> int:
+    """Rename every point belonging to old_name to new_name."""
+    ensure_collection()
+    c = get_client()
+    ids = []
+    offset = None
+    while True:
+        points, offset = c.scroll(
+            collection_name=COLLECTION_NAME, limit=100, offset=offset,
+            with_payload=True, with_vectors=False,
+        )
+        for p in points:
+            if (p.payload or {}).get("name") == old_name:
+                ids.append(p.id)
+        if offset is None:
+            break
+    if ids:
+        for i in range(0, len(ids), 100):
+            c.set_payload(
+                collection_name=COLLECTION_NAME,
+                payload={"name": new_name},
+                points=ids[i:i+100],
+            )
+    return len(ids)
+
+
+def delete_person(name: str) -> int:
+    """Delete every point belonging to a person."""
+    ensure_collection()
+    c = get_client()
+    ids = []
+    offset = None
+    while True:
+        points, offset = c.scroll(
+            collection_name=COLLECTION_NAME, limit=100, offset=offset,
+            with_payload=True, with_vectors=False,
+        )
+        for p in points:
+            if (p.payload or {}).get("name") == name:
+                ids.append(p.id)
+        if offset is None:
+            break
+    if ids:
+        from qdrant_client.models import PointIdsList
+        c.delete(
+            collection_name=COLLECTION_NAME,
+            points_selector=PointIdsList(points=ids),
+        )
+    return len(ids)
+
+
 def list_names() -> List[Dict]:
     """
     Return a list of every person on record:

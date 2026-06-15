@@ -222,6 +222,22 @@ def api_person(name: str):
     return database.get_person_thumbnails(name)
 
 
+@app.put("/api/person/{name}")
+async def api_rename_person(name: str, request: Request):
+    body = await request.json()
+    new_name = (body.get("new_name") or "").strip()
+    if not new_name:
+        return JSONResponse({"error": "Enter a new name."}, status_code=400)
+    updated = database.rename_person(name, new_name)
+    return {"old_name": name, "new_name": new_name, "updated": updated}
+
+
+@app.delete("/api/person/{name}")
+async def api_delete_person(name: str):
+    deleted = database.delete_person(name)
+    return {"name": name, "deleted": deleted}
+
+
 @app.get("/api/log")
 def api_log():
     return database.get_access_log()

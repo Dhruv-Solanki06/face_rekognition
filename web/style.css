@@ -225,6 +225,70 @@ a.choice p { margin: 0; color: var(--muted); font-size: 14px; }
 }
 .logout-btn:hover { border-color: var(--accent); color: var(--ink); }
 
+/* ---- wide layout for add page ---- */
+.wrap-wide { max-width: 1040px; margin: 0 auto; padding: 28px 20px 80px; }
+
+.add-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; }
+.add-form { position: sticky; top: 20px; }
+.add-directory { max-height: calc(100vh - 80px); overflow-y: auto; padding-right: 4px; }
+
+/* ---- autocomplete ---- */
+.ac-dropdown {
+  position: absolute; left: 0; right: 0; top: 100%; z-index: 10;
+  background: var(--panel); border: 1px solid var(--line-strong); border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.1); display: none; max-height: 260px; overflow-y: auto;
+}
+.ac-dropdown.show { display: block; }
+.ac-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 13px; cursor: pointer; font-size: 14px; transition: background .08s;
+}
+.ac-item:hover { background: var(--accent-light); }
+.ac-count { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+
+/* ---- dir action buttons (edit / delete) ---- */
+.dir-action {
+  background: none; border: 1px solid transparent; border-radius: 6px;
+  font-size: 14px; color: var(--muted); cursor: pointer; padding: 3px 7px;
+  line-height: 1; transition: all .1s;
+}
+.dir-action:hover { border-color: var(--line-strong); color: var(--ink); background: var(--bg); }
+.dir-action.del:hover { color: #b91c1c; border-color: #fecaca; background: #fef2f2; }
+
+/* ---- modals ---- */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(0,0,0,.35); display: none;
+  align-items: center; justify-content: center;
+}
+.modal-overlay.show { display: flex; }
+.modal {
+  background: var(--panel); border-radius: 12px; padding: 24px;
+  width: 90%; max-width: 380px; box-shadow: 0 12px 40px rgba(0,0,0,.18);
+}
+.modal input[type="text"] {
+  width: 100%; font-family: var(--sans); font-size: 16px; color: var(--ink);
+  padding: 10px 12px; background: var(--bg); border: 1px solid var(--line-strong);
+  border-radius: 8px; margin-bottom: 16px;
+}
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.modal-btn {
+  font-family: var(--sans); font-size: 14px; font-weight: 600;
+  padding: 9px 18px; border-radius: 8px; border: none; cursor: pointer;
+}
+.modal-btn.cancel { background: var(--bg); color: var(--muted); border: 1px solid var(--line-strong); }
+.modal-btn.cancel:hover { color: var(--ink); }
+.modal-btn.confirm { background: var(--accent); color: #fff; }
+.modal-btn.confirm:hover { background: var(--accent-press); }
+.modal-btn.danger { background: #dc2626; color: #fff; }
+.modal-btn.danger:hover { background: #b91c1c; }
+
+@media (max-width: 860px) {
+  .add-layout { grid-template-columns: 1fr; }
+  .add-form { position: static; }
+  .add-directory { max-height: none; }
+  .wrap-wide { max-width: 600px; }
+}
 @media (max-width: 460px) {
   h1 { font-size: 23px; }
   .topname { font-size: 25px; }
