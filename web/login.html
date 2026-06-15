@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login · Face Index</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="wrap" style="display:flex;align-items:center;justify-content:center;min-height:85vh;">
+    <div style="width:100%;max-width:400px;">
+      <div style="text-align:center;margin-bottom:28px;">
+        <span class="wordmark" style="font-size:15px;">FACE<span>·</span>INDEX</span>
+      </div>
+
+      <div class="panel">
+        <p class="eyebrow" style="margin-bottom:18px;">Authenticate</p>
+
+        <label class="field">
+          <span class="field-label">Your email</span>
+          <input type="email" id="email" placeholder="you@company.com" autocomplete="email" />
+        </label>
+
+        <label class="field">
+          <span class="field-label">Passkey</span>
+          <input type="password" id="passkey" placeholder="Enter the shared passkey" autocomplete="off" />
+        </label>
+
+        <button class="primary" id="go">Enter</button>
+      </div>
+
+      <div id="result"></div>
+      <p class="hint" style="margin-top:16px;">Access is logged. Ask your admin for the passkey.</p>
+    </div>
+  </div>
+
+  <script>
+    const email = document.getElementById("email");
+    const passkey = document.getElementById("passkey");
+    const go = document.getElementById("go");
+    const result = document.getElementById("result");
+
+    async function login() {
+      result.innerHTML = "";
+      const e = email.value.trim();
+      const p = passkey.value.trim();
+      if (!e || !e.includes("@")) { showErr("Enter a valid email."); return; }
+      if (!p) { showErr("Enter the passkey."); return; }
+
+      go.disabled = true; go.textContent = "Checking…";
+      try {
+        const r = await fetch("/api/login", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({email: e, passkey: p}),
+        });
+        const d = await r.json();
+        if (!r.ok) { showErr(d.error || "Login failed."); return; }
+        window.location.href = "/";
+      } catch (err) {
+        showErr("Could not reach the server.");
+      } finally {
+        go.disabled = false; go.textContent = "Enter";
+      }
+    }
+
+    go.addEventListener("click", login);
+    passkey.addEventListener("keydown", e => { if (e.key === "Enter") login(); });
+
+    function showErr(msg) { result.innerHTML = '<div class="note err" style="margin-top:14px;">' + esc(msg) + '</div>'; }
+    function esc(s) { return String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+  </script>
+</body>
+</html>

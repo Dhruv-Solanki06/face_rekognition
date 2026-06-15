@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Add a person · Face Index</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <a class="wordmark" href="/">FACE<span>·</span>INDEX</a>
+      <nav>
+        <a href="/add" class="active">Add</a>
+        <a href="/search">Search</a>
+        <a href="/log">Log</a>
+      </nav>
+    </header>
+
+    <p class="eyebrow">01 / Add a person</p>
+    <h1>Add photos under a name</h1>
+    <p class="lede">Pick a name from the directory below or type a new one. Only new photos are processed — nothing on record is touched.</p>
+
+    <div class="panel">
+      <label class="field">
+        <span class="field-label">Person's name</span>
+        <input type="text" id="name" placeholder="e.g. Priya Sharma" autocomplete="off" />
+      </label>
+
+      <span class="field-label">Photos</span>
+      <div class="drop" id="drop">
+        <strong>Choose photos</strong> or drag them here
+        <p>JPG or PNG · one person · multiple photos welcome</p>
+        <input type="file" id="files" accept="image/*" multiple />
+      </div>
+      <div class="filelist" id="filelist"></div>
+
+      <button class="primary" id="go" style="margin-top:18px;">Add to index</button>
+    </div>
+
+    <div id="result"></div>
+
+    <!-- ---- DIRECTORY ---- -->
+    <div class="directory" id="directory" style="margin-top:32px;">
+      <div class="dir-header">
+        <p class="eyebrow" style="margin:0;">People on record</p>
+        <div class="sort-controls">
+          <button class="sort-btn active" data-sort="alpha">A–Z</button>
+          <button class="sort-btn" data-sort="recent">Recent</button>
+          <button class="sort-btn" data-sort="count">Most photos</button>
+        </div>
+      </div>
+      <div id="dir-list" class="dir-list">
+        <p class="hint">Loading…</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const nameEl = document.getElementById("name");
+    const filesEl = document.getElementById("files");
+    const drop = document.getElementById("drop");
+    const filelist = document.getElementById("filelist");
+    const go = document.getElementById("go");
+    const result = document.getElementById("result");
+    const dirList = document.getElementById("dir-list");
+
+    // ---- file upload ----
+    drop.addEventListener("click", () => filesEl.click());
+    ["dragenter","dragover"].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.add("over"); }));
+    ["dragleave","drop"].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.remove("over"); }));
+    drop.addEventListener("drop", ev => { filesEl.files = ev.dataTransfer.files; renderFiles(); });
+    filesEl.addEventListener("change", renderFiles);
+
+    function renderFiles() {
+      filelist.innerHTML = "";
+      for (const f of filesEl.files) {
+        const d = document.createElement("div");
+        d.textContent = "\u2022 " + f.name;
+        filelist.appendChild(d);
+      }
+    }
+
+    // ---- add action ----
+    go.addEventListener("click", async () => {
+      result.innerHTML = "";
+      const name = nameEl.value.trim();
+      if (!name) { showErr("Enter a name first."); return; }
+      if (!filesEl.files.length) { showErr("Choose at least one photo."); return; }
+
+      const fd = new FormData();
+      fd.append("name", name);
+      for (const f of filesEl.files) fd.append("files", f);
+
+      go.disabled = true; go.textContent = "Adding\u2026"; go.classList.add("spin");
+      try {
+        const r = await fetch("/api/add", { method: "POST", body: fd });
+        const d = await r.json();
+        if (r.status === 401) { window.location.href = "/login"; return; }
+        if (!r.ok) { showErr(d.error || "Something went wrong."); return; }
+        showAddResult(d);
+        filesEl.value = ""; renderFiles();
+        loadDirectory();
+      } catch (e) {
+        showErr("Could not reach the server.");
+      } finally {
+        go.disabled = false; go.textContent = "Add to index"; go.classList.remove("spin");
+      }
+    });
+
+    function showAddResult(d) {
+      const cls = d.added > 0 ? "ok" : "warn";
+      let html = '<div class="note ' + cls + '">';
+      if (d.added > 0) {
+        html += "Added <b>" + d.added + "</b> " + (d.added === 1 ? "photo" : "photos") + " for <b>" + esc(d.name) + "</b>.";
+      } else {
+        html += "No faces were added for <b>" + esc(d.name) + "</b>.";
+      }
+      if (d.skipped && d.skipped.length) {
+        html += "<br>Skipped " + d.skipped.length + " (no clear face):<ul>";
+        for (const s of d.skipped) html += "<li>" + esc(s.file) + "</li>";
+        html += "</ul>";
+      }
+      html += '</div><p class="hint">' + d.total_indexed.toLocaleString() + " faces on record</p>";
+      result.innerHTML = html;
+    }
+
+    // ---- directory ----
+    let allNames = [];
+    let currentSort = "alpha";
+    let expandedName = null;
+
+    async function loadDirectory() {
+      try {
+        const r = await fetch("/api/names");
+        if (r.status === 401) { window.location.href = "/login"; return; }
+        allNames = await r.json();
+        renderDirectory();
+      } catch (e) {
+        dirList.innerHTML = '<p class="hint">Could not load directory.</p>';
+      }
+    }
+
+    function sortNames(list, mode) {
+      const sorted = [...list];
+      if (mode === "alpha") sorted.sort((a, b) => a.name.localeCompare(b.name));
+      else if (mode === "recent") sorted.sort((a, b) => (b.last_updated || "").localeCompare(a.last_updated || ""));
+      else if (mode === "count") sorted.sort((a, b) => b.count - a.count);
+      return sorted;
+    }
+
+    function renderDirectory() {
+      if (!allNames.length) {
+        dirList.innerHTML = '<p class="hint">No one on record yet.</p>';
+        return;
+      }
+      const sorted = sortNames(allNames, currentSort);
+      let html = "";
+      for (const entry of sorted) {
+        const isExp = expandedName === entry.name;
+        html += '<div class="dir-entry">';
+        html += '<div class="dir-row" data-name="' + esc(entry.name) + '">';
+        html += '<span class="dir-name">' + esc(entry.name) + '</span>';
+        html += '<span class="dir-meta">' + entry.count + ' photo' + (entry.count !== 1 ? 's' : '') + '</span>';
+        html += '<button class="dir-expand" data-name="' + esc(entry.name) + '">' + (isExp ? '\u25B2' : '\u25BC') + '</button>';
+        html += '</div>';
+        if (isExp) {
+          html += '<div class="dir-thumbs" id="thumbs-' + esc(entry.name) + '"><p class="hint">Loading\u2026</p></div>';
+        }
+        html += '</div>';
+      }
+      dirList.innerHTML = html;
+
+      // attach click handlers
+      dirList.querySelectorAll(".dir-row").forEach(row => {
+        row.addEventListener("click", () => {
+          const nm = row.dataset.name;
+          nameEl.value = nm;
+          nameEl.focus();
+        });
+      });
+      dirList.querySelectorAll(".dir-expand").forEach(btn => {
+        btn.addEventListener("click", ev => {
+          ev.stopPropagation();
+          const nm = btn.dataset.name;
+          expandedName = expandedName === nm ? null : nm;
+          renderDirectory();
+          if (expandedName === nm) loadThumbnails(nm);
+        });
+      });
+    }
+
+    async function loadThumbnails(name) {
+      const container = document.getElementById("thumbs-" + name);
+      if (!container) return;
+      try {
+        const r = await fetch("/api/person/" + encodeURIComponent(name));
+        if (r.status === 401) { window.location.href = "/login"; return; }
+        const items = await r.json();
+        if (!items.length) { container.innerHTML = '<p class="hint">No thumbnails stored.</p>'; return; }
+        let html = '<div class="thumb-grid">';
+        for (const it of items) {
+          if (it.thumbnail) {
+            html += '<div class="thumb-item"><img src="data:image/jpeg;base64,' + it.thumbnail + '" alt="' + esc(name) + '" />';
+            if (it.source) html += '<span class="thumb-label">' + esc(it.source) + '</span>';
+            html += '</div>';
+          } else {
+            html += '<div class="thumb-item thumb-empty"><span>No preview</span>';
+            if (it.source) html += '<span class="thumb-label">' + esc(it.source) + '</span>';
+            html += '</div>';
+          }
+        }
+        html += '</div>';
+        container.innerHTML = html;
+      } catch (e) {
+        container.innerHTML = '<p class="hint">Could not load thumbnails.</p>';
+      }
+    }
+
+    // sort buttons
+    document.querySelectorAll(".sort-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".sort-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        currentSort = btn.dataset.sort;
+        renderDirectory();
+      });
+    });
+
+    loadDirectory();
+
+    function showErr(msg) { result.innerHTML = '<div class="note err">' + esc(msg) + '</div>'; }
+    function esc(s) { return String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+  </script>
+</body>
+</html>

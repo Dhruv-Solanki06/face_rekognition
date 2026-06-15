@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Face Index</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <a class="wordmark" href="/">FACE<span>·</span>INDEX</a>
+      <nav>
+        <a href="/add">Add</a>
+        <a href="/search">Search</a>
+        <a href="/log">Log</a>
+      </nav>
+    </header>
+
+    <p class="eyebrow">Shared face database</p>
+    <h1>Add people, then search a face against everyone on record.</h1>
+    <p class="lede">Everything is shared. Anything one person adds is instantly available to the whole team.</p>
+
+    <div class="choices">
+      <a class="choice" href="/add">
+        <span class="num">01 / ADD</span>
+        <h2>Add a person</h2>
+        <p>Upload one photo or a whole batch under a single name.</p>
+      </a>
+      <a class="choice" href="/search">
+        <span class="num">02 / SEARCH</span>
+        <h2>Search a face</h2>
+        <p>Upload a photo to find the closest matches and confidence.</p>
+      </a>
+    </div>
+
+    <p class="count" id="count">Loading index…</p>
+  </div>
+
+  <script>
+    fetch("/health")
+      .then(r => r.json())
+      .then(d => {
+        const el = document.getElementById("count");
+        if (d && typeof d.faces_indexed === "number") {
+          el.textContent = d.faces_indexed.toLocaleString() + " faces on record";
+        } else { el.textContent = ""; }
+      })
+      .catch(() => { document.getElementById("count").textContent = ""; });
+  </script>
+</body>
+</html>

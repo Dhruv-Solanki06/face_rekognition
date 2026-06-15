@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Access Log · Face Index</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <a class="wordmark" href="/">FACE<span>·</span>INDEX</a>
+      <nav>
+        <a href="/add">Add</a>
+        <a href="/search">Search</a>
+        <a href="/log" class="active">Log</a>
+      </nav>
+    </header>
+
+    <p class="eyebrow">Access log</p>
+    <h1>Who logged in</h1>
+    <p class="lede">Every login is recorded here with the email and timestamp.</p>
+
+    <div id="log-list" class="panel">
+      <p class="hint">Loading…</p>
+    </div>
+
+    <div style="margin-top:18px;text-align:center;">
+      <button class="logout-btn" id="logout">Log out</button>
+    </div>
+  </div>
+
+  <script>
+    const logList = document.getElementById("log-list");
+
+    async function loadLog() {
+      try {
+        const r = await fetch("/api/log");
+        if (r.status === 401) { window.location.href = "/login"; return; }
+        const entries = await r.json();
+        if (!entries.length) { logList.innerHTML = '<p class="hint">No logins recorded yet.</p>'; return; }
+
+        let html = '<div class="log-table">';
+        html += '<div class="log-row log-header"><span class="log-email">Email</span><span class="log-time">When</span></div>';
+        for (const e of entries) {
+          const dt = e.timestamp ? new Date(e.timestamp) : null;
+          const when = dt ? dt.toLocaleString() : "—";
+          html += '<div class="log-row"><span class="log-email">' + esc(e.email) + '</span><span class="log-time">' + esc(when) + '</span></div>';
+        }
+        html += '</div>';
+        logList.innerHTML = html;
+      } catch (e) {
+        logList.innerHTML = '<p class="hint">Could not load log.</p>';
+      }
+    }
+
+    document.getElementById("logout").addEventListener("click", async () => {
+      await fetch("/api/logout", { method: "POST" });
+      window.location.href = "/login";
+    });
+
+    loadLog();
+
+    function esc(s) { return String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+  </script>
+</body>
+</html>

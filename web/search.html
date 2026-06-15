@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Search a face · Face Index</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <a class="wordmark" href="/">FACE<span>·</span>INDEX</a>
+      <nav>
+        <a href="/add">Add</a>
+        <a href="/search" class="active">Search</a>
+        <a href="/log">Log</a>
+      </nav>
+    </header>
+
+    <p class="eyebrow">02 / Search a face</p>
+    <h1>Identify a face</h1>
+    <p class="lede">Upload one photo. You'll get the closest match, a confidence reading, and the raw score.</p>
+
+    <div class="panel">
+      <span class="field-label">Photo to identify</span>
+      <div class="drop" id="drop">
+        <strong>Choose a photo</strong> or drag it here
+        <p>JPG or PNG · one face works best</p>
+        <input type="file" id="file" accept="image/*" />
+      </div>
+      <div class="filelist" id="filelist"></div>
+      <button class="primary" id="go" style="margin-top:18px;">Search</button>
+    </div>
+
+    <div id="result" class="readout"></div>
+  </div>
+
+  <script>
+    const fileEl = document.getElementById("file");
+    const drop = document.getElementById("drop");
+    const filelist = document.getElementById("filelist");
+    const go = document.getElementById("go");
+    const result = document.getElementById("result");
+
+    drop.addEventListener("click", () => fileEl.click());
+    ["dragenter","dragover"].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.add("over"); }));
+    ["dragleave","drop"].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.remove("over"); }));
+    drop.addEventListener("drop", ev => { fileEl.files = ev.dataTransfer.files; renderFile(); });
+    fileEl.addEventListener("change", renderFile);
+    function renderFile() { filelist.innerHTML = fileEl.files.length ? ("\u2022 " + fileEl.files[0].name) : ""; }
+
+    go.addEventListener("click", async () => {
+      result.innerHTML = "";
+      if (!fileEl.files.length) { showErr("Choose a photo to search."); return; }
+      const fd = new FormData();
+      fd.append("file", fileEl.files[0]);
+      go.disabled = true; go.textContent = "Searching\u2026"; go.classList.add("spin");
+      try {
+        const r = await fetch("/api/search", { method: "POST", body: fd });
+        if (r.status === 401) { window.location.href = "/login"; return; }
+        const d = await r.json();
+        if (!r.ok) { showErr(d.error || "Something went wrong."); return; }
+        showResult(d);
+      } catch (e) { showErr("Could not reach the server."); }
+      finally { go.disabled = false; go.textContent = "Search"; go.classList.remove("spin"); }
+    });
+
+    function showResult(d) {
+      if (!d.results || !d.results.length) {
+        result.innerHTML = '<div class="note warn">The database is empty. Add some people first.</div>';
+        return;
+      }
+      const top = d.results[0];
+      const conf = top.confidence.toFixed(1);
+      const cos = top.score.toFixed(4);
+      let html = "";
+      if (d.unknown) {
+        html += '<span class="status-chip status-unknown"><span class="dot"></span>Unknown person</span>';
+        html += '<div class="topname dim">No confident match</div>';
+      } else {
+        html += '<span class="status-chip status-match"><span class="dot"></span>Match</span>';
+        html += '<div class="topname">' + esc(top.name) + '</div>';
+      }
+      html += '<div class="meter ' + (d.unknown ? "low" : "") + '"><span style="width:' + Math.max(2, Math.min(100, conf)) + '%"></span></div>';
+      html += '<div class="metrics"><span>Confidence <b>' + conf + '%</b></span><span>Cosine <b>' + cos + '</b></span></div>';
+      const rest = d.unknown ? d.results : d.results.slice(1);
+      if (rest.length) {
+        html += '<div class="others"><p class="eyebrow">' + (d.unknown ? "Closest on record" : "Other candidates") + '</p>';
+        for (const h of rest) html += '<div class="row"><span class="nm">' + esc(h.name) + '</span><span class="sc">' + h.confidence.toFixed(1) + '% \u00B7 ' + h.score.toFixed(4) + '</span></div>';
+        html += '</div>';
+      }
+      result.innerHTML = html;
+    }
+    function showErr(msg) { result.innerHTML = '<div class="note err">' + esc(msg) + '</div>'; }
+    function esc(s) { return String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+  </script>
+</body>
+</html>

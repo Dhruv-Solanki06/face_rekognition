@@ -1,0 +1,9 @@
+numpy==1.26.4
+insightface==0.7.3
+onnxruntime==1.17.1
+opencv-python-headless==4.9.0.80
+qdrant-client==1.17.0
+tqdm==4.66.2
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
